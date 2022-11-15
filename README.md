@@ -1,2 +1,2 @@
 # Yolov5-Learning-Record
-Learning record of yolov5 algorithm
+请每天上传yolov5算法代码和学习记录，每天上传时请在此文档中写明当日代码和学习输出物说明
