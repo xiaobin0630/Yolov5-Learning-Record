@@ -76,13 +76,11 @@ class C3(nn.Module):
         self.m = nn.Sequential(*[Bottleneck(hidden_channels,hidden_channels,shortcut,group,expansion=1.0) for _ in range(n)])
     def forward(self,x):
         # self.conv3 (160,160,1024) -> (160,160,128)
-        return self.conv3(torch.cat
-            (
+        return self.conv3(torch.cat(
+        (
             self.m(self.conv1(x)),
             self.conv2(x)
-            )
-            ,dim=1
-        )
+        ), dim=1))
 
 
 class SPP(nn.Module):
@@ -156,3 +154,23 @@ class CSPDarknet(nn.Module):
         x = self.dark5(x)
         feature_3 = x
         return feature_1,feature_2,feature_3
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                nn.init.constant_(m.bias, 0)
+
+
+
+if __name__ == "__main__":
+    img = torch.rand([1,3, 640, 640])
+    phi = 1
+    pretrained = 1
+    model = CSPDarknet(64, 1, phi, pretrained)
+    out = model(img)
+    print(model)
