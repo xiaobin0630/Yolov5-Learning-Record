@@ -18,6 +18,10 @@ def cvtColor(image):
         image = image.convert('RGB')
         return image
 
+# 对图像的像素点都除以255
+def preprocess_input(image):
+    image /= 255.0
+    return image
 
 
 
