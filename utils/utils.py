@@ -1,6 +1,12 @@
 import numpy as np
 from PIL import Image
 
+# 获得学习率
+def get_lr(optimizer):
+    for param_group in optimizer.param_groups:
+        return param_group['lr']
+
+
 # 获得类与类的数量
 def get_classes(classes_path):
     with open(classes_path,encoding="utf-8") as f:

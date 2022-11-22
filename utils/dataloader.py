@@ -303,6 +303,8 @@ class YoloDataset(Dataset):
 
     def get_random_data_with_Mosaic(self,annotation_line,input_shape,jitter=0.3,hue=0.1,sat=0.7,val=0.4):
         # 获取长宽
+
+
         h,w = input_shape
 
         # 获取0.3-0.7的随机数

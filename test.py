@@ -1,6 +1,9 @@
+import time
+
 import torch
 import torch.nn
 import numpy as np
+from tqdm import tqdm
 from utils.utils import get_classes
 from random import sample, shuffle
 from PIL import Image
@@ -8,15 +11,20 @@ def rand(a = 0,b = 1):
     return np.random.rand() * (b - a) + a
 
 if __name__ == '__main__':
-    a = [(1,2),(3,4),(5,6)]
-    b = np.array(a)
-    print(torch.Tensor(b))
-    anchor_w = torch.Tensor(b).index_select(1, torch.LongTensor([1]))
-    print(anchor_w)
-    print(anchor_w.repeat(8, 1))
-    print(anchor_w.repeat(8, 1).shape)
-    print(anchor_w.repeat(8,1).repeat(1,1,400))
-    print(anchor_w.repeat(8,1).repeat(1,1,400).shape)
+    text = ""
+    for char in tqdm(["a","b","c","d"]):
+        time.sleep(0.25)
+        text = text + char
+
+    # a = [(1,2),(3,4),(5,6)]
+    # b = np.array(a)
+    # print(torch.Tensor(b))
+    # anchor_w = torch.Tensor(b).index_select(1, torch.LongTensor([1]))
+    # print(anchor_w)
+    # print(anchor_w.repeat(8, 1))
+    # print(anchor_w.repeat(8, 1).shape)
+    # print(anchor_w.repeat(8,1).repeat(1,1,400))
+    # print(anchor_w.repeat(8,1).repeat(1,1,400).shape)
 
     # a = [(1,2),(3,4)]
     # b = np.array(a)
