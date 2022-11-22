@@ -155,15 +155,15 @@ class CSPDarknet(nn.Module):
         feature_3 = x
         return feature_1,feature_2,feature_3
 
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.xavier_uniform_(m.weight)
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
-                nn.init.constant_(m.bias, 0)
+    # def _initialize_weights(self):
+    #     for m in self.modules():
+    #         if isinstance(m, nn.Conv2d):
+    #             nn.init.xavier_uniform_(m.weight)
+    #             if m.bias is not None:
+    #                 nn.init.constant_(m.bias, 0)
+    #         elif isinstance(m, nn.Linear):
+    #             nn.init.xavier_uniform_(m.weight)
+    #             nn.init.constant_(m.bias, 0)
 
 
 

@@ -87,15 +87,15 @@ class YoloBody(nn.Module):
         # 第一个特征层 (bs,1024,20,20) -> (bs,75,20,20)
         out0 = self.yolo_head_P5(P5)
         return out0,out1,out2
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.xavier_uniform_(m.weight)
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
-                nn.init.constant_(m.bias, 0)
+    # def _initialize_weights(self):
+    #     for m in self.modules():
+    #         if isinstance(m, nn.Conv2d):
+    #             nn.init.xavier_uniform_(m.weight)
+    #             if m.bias is not None:
+    #                 nn.init.constant_(m.bias, 0)
+    #         elif isinstance(m, nn.Linear):
+    #             nn.init.xavier_uniform_(m.weight)
+    #             nn.init.constant_(m.bias, 0)
 
 if __name__ == "__main__":
     anchors_mask = [[10, 13, 16], [30, 33, 23], [30, 61, 62], [10, 13, 16], [30, 33, 23], [30, 61, 62]]

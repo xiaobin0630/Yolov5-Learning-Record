@@ -1,5 +1,5 @@
 import time
-
+import os
 import torch
 import torch.nn
 import numpy as np
@@ -7,14 +7,23 @@ from tqdm import tqdm
 from utils.utils import get_classes
 from random import sample, shuffle
 from PIL import Image
+import datetime
 def rand(a = 0,b = 1):
     return np.random.rand() * (b - a) + a
 
 if __name__ == '__main__':
-    text = ""
-    for char in tqdm(["a","b","c","d"]):
-        time.sleep(0.25)
-        text = text + char
+    time_str = datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S')
+    log_dir = os.path.join('logs', "loss_" + str(time_str))
+    print(time_str)
+    print(log_dir)
+    # ngpus_per_node = torch.cuda.device_count()
+    # print(ngpus_per_node)
+    # print(torch.cuda.is_available())
+    # print(torch.cuda.get_device_name(0))
+    # text = ""
+    # for char in tqdm(["a","b","c","d"]):
+    #     time.sleep(0.25)
+    #     text = text + char
 
     # a = [(1,2),(3,4),(5,6)]
     # b = np.array(a)
