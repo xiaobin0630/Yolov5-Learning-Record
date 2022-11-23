@@ -61,7 +61,31 @@ def download_weights(backbone,phi,model_dir="./model_data"):
     load_state_dict_from_url(url,model_dir)
 
 
-
+# 对输入图像进行resize
+def resize_image(image,size,letterbox_image):
+    # 获取图像的宽高
+    iw,ih = image.size
+    # 获取输入形状的宽高
+    w,h = size
+    # 判断如果为真,就进行添加灰条的不失真的resize,否则就直接进行resize
+    if letterbox_image:
+        # 求出最小输入形状与图像大小的比列
+        scale = min(w/iw,h/ih)
+        nw = int(iw*scale) # 求出宽
+        nh = int(ih*scale) # 求出高
+        # 将图像resize为(nw,nh)
+        image = image.resize((nw,nh),Image.BICUBIC)
+        # 创建一张大小为size的RGB图像
+        new_image = Image.new('RGB',size,(128,128,128))
+        # resize图片黏贴在new_image的((w-nw)//2,(h-nh)//2)位置上
+        new_image.paste(image,((w-nw)//2,(h-nh)//2))
+    else:
+        new_image = image.resize((w,h),Image.BICUBIC)
+    return new_image
+# 图像归一化
+def preprocess_input(image):
+    image /= 255.0
+    return image
 
 
 
