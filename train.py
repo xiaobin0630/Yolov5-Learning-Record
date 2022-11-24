@@ -9,7 +9,7 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from utils.callbacks import LossHistory,EvalCallback
 from nets.yolo_trainning import weights_init,YOLOLoss,ModelEMA,get_lr_scheduler,set_optimizer_lr
-from utils.utils import get_classes,download_weights,show_config
+from utils.utils import get_classes,download_weights,show_config,get_anchors
 from utils.dataloader import YoloDataset,yolo_dataset_collate
 from torch.utils.data import DataLoader
 from utils.utils_fit import fit_one_epoch
@@ -53,17 +53,18 @@ if __name__ == "__main__":
     # Init_Epoch 模型当前开始的训练迭代数
     Init_Epoch = 0
     # Freeze_Epoch 冻结训练的迭代数 如果设置Freeze_Epoch为50 Init_Epoch为0 则 0-50的训练次数是冻结阶段训练
-    Freeze_Epoch = 50
+    Freeze_Epoch = 1
     # Freeze_batch_size 冻结阶段训练的小批量大小值
-    Freeze_batch_size = 2
+    Freeze_batch_size = 4
     # UnFreeze_Epoch 为不冻结训练阶段
-    UnFreeze_Epoch = 100
+    UnFreeze_Epoch = 2
     # UnFreeze_batch_size 为非冻结阶段的小批量大小值
-    UnFreeze_batch_size = 2
+    UnFreeze_batch_size = 4
     # Freeze_Train 是否进行冻结训练 默认先冻结训练
     Freeze_Train = True
 
     # 学习率,优化器,学习率下降等
+
     # Init_lr 模型莫大且最初的学习率 0.01
     Init_lr = 1e-2
     # 模型的最小下学习率
@@ -105,7 +106,7 @@ if __name__ == "__main__":
         rank = 0
     # 获取类名与数量,先验框大小与数量
     class_names,num_classes = get_classes(classes_path)
-    anchors,num_anchors = get_classes(anchors_path)
+    anchors,num_anchors = get_anchors(anchors_path)
 
     # 下栽预处理权重 pretrained = False 跳过
     if pretrained:
@@ -154,6 +155,7 @@ if __name__ == "__main__":
     if local_rank == 0:
         # 生成时间字符串 如:2022_11_22_13_36_55
         time_str = datetime.datetime.strftime(datetime.datetime.now(),'%Y_%m_%d_%H_%M_%S')
+
         # 生成log_dir文件夹路径
         log_dir = os.path.join(save_dir,"loss_" + str(time_str))
         # 实例化LossHistory为后面画图做准备
@@ -283,18 +285,19 @@ if __name__ == "__main__":
         if distributed:
             pass
         else:
-            train_sample = None
-            val_sample = None
+            train_sampler = None
+            val_sampler = None
             shuffle = True
         # 训练数据集加载器
-        gen = DataLoader(train_dataset,shuffle = shuffle,batch_size = batch_size,num_workers = num_workers,pin_memory = True,
-                         drop_last=True,collate_fn=yolo_dataset_collate,sampler=train_sample)
+        gen = DataLoader(train_dataset, shuffle = shuffle, batch_size = batch_size, num_workers = num_workers, pin_memory=True,
+                                    drop_last=True, collate_fn=yolo_dataset_collate, sampler=train_sampler)
         # 验证
-        gen_val = DataLoader(val_dataset,shuffle = shuffle,batch_size=batch_size,num_workers=num_workers,pin_memory=True,
-                             drop_last=True,collate_fn=yolo_dataset_collate,sampler=val_sample)
+        gen_val = DataLoader(val_dataset  , shuffle = shuffle, batch_size = batch_size, num_workers = num_workers, pin_memory=True,
+                                    drop_last=True, collate_fn=yolo_dataset_collate, sampler=val_sampler)
 
         # 记录eval的map曲线
         if local_rank == 0:
+
             # 实例化EvalCallback
             eval_callback = EvalCallback(model,input_shape,anchors,anchors_mask,class_names,num_classes,val_lines,log_dir,
                                          Cuda,eval_flag=eval_flag,period=eval_period)
@@ -337,9 +340,9 @@ if __name__ == "__main__":
                 if distributed:
                     pass
                 gen = DataLoader(train_dataset,shuffle = shuffle,batch_size = batch_size,num_workers = num_workers,pin_memory=True,
-                                 drop_last=True,collate_fn=yolo_dataset_collate,sampler=train_sample)
+                                 drop_last=True,collate_fn=yolo_dataset_collate,sampler=train_sampler)
                 gen_val = DataLoader(val_dataset,shuffle = shuffle,batch_size = batch_size,num_workers = num_workers,pin_memory=True,
-                                     drop_last=True,collate_fn=yolo_dataset_collate,sampler=val_sample)
+                                     drop_last=True,collate_fn=yolo_dataset_collate,sampler=val_sampler)
 
                 UnFreeze_Epoch = True
             # 设置当前的epoch

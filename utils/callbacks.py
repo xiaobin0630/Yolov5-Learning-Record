@@ -208,6 +208,50 @@ class EvalCallback():
                 # 获得预测txt
                 self.get_map_txt(image_id,image,self.class_names,self.map_out_path)
 
+                # 获得真实框txt
+                with open(os.path.join(self.map_out_path,"ground-truth/" + image_id + ".txt"),"w") as new_f:
+                    # 循环提取框
+                    for box in gt_boxes:
+                        # 框坐标与类别数
+                        # x1,y1,x2,y2
+                        left,top,right,bottom,obj = box
+                        obj_name = self.class_names[obj]
+                        # 写入
+                        new_f.write("%s %s %s %s %s\n" % (obj_name,left,top,right,bottom))
+            print("计算map.")
+            # try:
+                # temp_map = get_coco_map(class_names = self.class_names,path = self.map_out_path)[1]
+            # except:
+                # temp_map = get_map(self.MINOVERLAP,False,path = self.map_out_path)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
