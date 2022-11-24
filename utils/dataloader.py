@@ -501,6 +501,23 @@ class YoloDataset(Dataset):
 
 
 
+# 如何读取数据
+def yolo_dataset_collate(batch):
+    images = []
+    bboxes = []
+    y_trues = [[] for _ in batch[0][2]]
+    # 循环提取对应的数据
+    for img,box,y_true in batch:
+        images.append(img)
+        bboxes.append(box)
+        for i,sub_y_true in enumerate(y_true):
+            y_trues[i].append(sub_y_true)
+    # 将numpy格式数据变为tensor
+    images = torch.from_numpy(np.array(images)).type(torch.FloatTensor)
+    # 因为循环,所以得在假一层列表,将每个数据放在列表中
+    bboxes = [torch.from_numpy(ann).type(torch.FloatTensor) for ann in bboxes]
+    y_trues = [torch.from_numpy(np.array(ann,np.float32)).type(torch.FloatTensor) for ann in y_trues]
+    return images,bboxes,y_trues
 
 
 

@@ -173,7 +173,7 @@ class YOLOLoss(nn.Module):
         grid_x = torch.linspace(0,in_w - 1,in_w).repeat(in_h,1).repeat(
             int(bs * len(self.anchors_mask[l])),1,1).view(x.shape).type_as(x)
         # (bs, 3, 20, 20)
-        grid_y = torch.linspace(0,in_h - 1,in_h).repeat(in_w,1).repeat(
+        grid_y = torch.linspace(0,in_h - 1,in_h).repeat(in_w,1).t().repeat(
             int(bs * len(self.anchors_mask[l])),1,1).view(y.shape).type_as(x)
 
         # 生成先验框的宽高 [(),(),()]
@@ -184,7 +184,7 @@ class YOLOLoss(nn.Module):
         anchor_h = torch.Tensor(scaled_anchors_l).index_select(1, torch.LongTensor([1])).type_as(x)
         # (bs, 3, 20, 20)
         anchor_w = anchor_w.repeat(bs,1).repeat(1,1,in_h * in_w).view(w.shape)
-        anchor_h = anchor_w.repeat(bs,1).repeat(1,1,in_h * in_w).view(h.shape)
+        anchor_h = anchor_h.repeat(bs,1).repeat(1,1,in_h * in_w).view(h.shape)
 
         # 计算调整后的先验框中心与宽高
         pred_boxes_x = torch.unsqueeze(x * 2.0 - 0.5 + grid_x,-1)
@@ -294,6 +294,11 @@ def get_lr_scheduler(lr_decay_type,lr,min_lr,total_iters,warmup_iters_ratio = 0.
     return func
 
 
+
+def set_optimizer_lr(optimizer,lr_scheduler_func,epoch):
+    lr = lr_scheduler_func(epoch)
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
 
 
 
