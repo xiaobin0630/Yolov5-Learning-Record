@@ -25,11 +25,9 @@ def get_classes(classes_path):
 
 # 将图片转化为RGB图片
 def cvtColor(image):
-    # 如何image的shape的维度数是3且第2维的通通道数是3则是RGB图片
     if len(np.shape(image)) == 3 and np.shape(image)[2] == 3:
         return image
     else:
-        # 不是RGB图片,就转化为RGB图片
         image = image.convert('RGB')
         return image
 
@@ -89,7 +87,13 @@ def preprocess_input(image):
 
 
 
-
+# 获得先验框
+def get_anchors(anchors_path):
+    with open(anchors_path, encoding='utf-8') as f:
+        anchors = f.readline()
+    anchors = [float(x) for x in anchors.split(',')]
+    anchors = np.array(anchors).reshape(-1, 2)
+    return anchors, len(anchors)
 
 
 

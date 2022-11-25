@@ -16,6 +16,7 @@ def fit_one_epoch(model_train,model,ema,yolo_loss,loss_history,eval_callback,opt
     model_train.train()
     # 循环提取小批量数据进行训练
     for iteration,batch in enumerate(gen):
+
         # 如果迭代书大于了一次epoch的批量数,结束本次epoch训练
         if iteration >= epoch_step:
             break
@@ -112,7 +113,7 @@ def fit_one_epoch(model_train,model,ema,yolo_loss,loss_history,eval_callback,opt
         pbar.close()
         print('验证阶段完成')
         loss_history.append_loss(epoch + 1,loss / epoch_step,val_loss / epoch_step_val)
-        eval_callback.on_epoch_end(epoch + 1,model_train_eval)
+        # eval_callback.on_epoch_end(epoch + 1,model_train_eval)
         # 打印当前是第几轮epoch
         print('Epoch:' + str(epoch + 1) + '/' + str(Epoch))
         # 打印当前轮的训练损失与验证损失
