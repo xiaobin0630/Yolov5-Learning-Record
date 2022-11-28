@@ -148,9 +148,9 @@ class DecodeBox():
 
             # detections [num_anchors,7]
             # 7的内容为: x1,y1,x2,y2,obj_conf,class_conf,class_pred
-            detections = torch.cat((image_pred[:,:5],class_conf.float(),class_pred.cloat()),1)
+            detections = torch.cat((image_pred[:,:5],class_conf.float(),class_pred.float()),1)
             # 获取预测结果中包含的所有种类
-            unique_labels = detections[:,-1].cput().unique()
+            unique_labels = detections[:,-1].cpu().unique()
 
             # 判断是否使用GPU,有就将数据放在GPU上
             if prediction.is_cuda:
