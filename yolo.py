@@ -206,6 +206,63 @@ class YOLO(object):
             draw.text(text_origin,str(label,'UTF-8'),fill=(0,0,0),font=font)
             del draw
         return image
+    # 得到txt
+    def get_map_txt(self, image_id, image, class_names,map_out_path):
+        # 创建对应图像id的txt
+        f = open(os.path.join(map_out_path,"detection-results/" + image_id + ".txt"),"w",encoding='utf-8')
+        # 提取图片的shape
+        image_shpae = np.array(np.shape(image)[0:2])
+        # 将图片转化为RGB图像
+        image = cvtColor(image)
+        # 给图像增加灰条,实现不失真的resize
+        image_data = resize_image(image,(self.input_shape[1],self.input_shape[0]),self.letterbox_image)
+        # 添加batch_size维度
+        image_data = np.expand_dims(np.transpose(preprocess_input(np.array(image_data,dtype='float32')),(2, 0, 1)),0)
+
+        # 不计算梯度
+        with torch.no_grad():
+            images = torch.from_numpy(image_data)
+            # 是否使用gpu
+            if self.cuda:
+                images = images.cuda
+
+            # 将图像输入网络中进行预测
+            outputs = self.net(images)
+            outputs = self.bbox_util.decode_box(outputs)
+
+            # 堆叠预测框,进行非极大值抑制
+            results = self.bbox_util.non_max_suppression(torch.cat(outputs,1),self.num_classes,self.input_shape,
+                                                         image_shpae,self.letterbox_image,conf_thres=self.confidence,
+                                                         nms_thres=self.nms_iou
+                                                         )
+
+            # 如果没有框直接返回
+            if results[0] is None:
+                return
+            # 提取预测的类别数
+            top_label = np.array(results[0][:,6],dtype='int32')
+            # 置信度
+            top_conf = results[0][:,4] * results[0][:,5]
+            # 框坐标
+            top_boxes = results[0][:,:4]
+
+        # 循环提取并保存
+        for i, c in list(enumerate(top_label)):
+            predicted_class = self.class_names[int(c)]
+            box = top_boxes[i]
+            score = str(top_conf[i])
+            # 坐标 y1,x1,y2,x2
+            top, left, bottom, right = box
+
+            if predicted_class not in class_names:
+                continue
+            # 写入
+            f.write("%s %s %s %s %s %s\n" % (predicted_class,score[:6],str(int(left)),str(int(top)),str(int(right)),str(int(bottom))))
+
+        f.close()
+        return
+
+
 
 
 

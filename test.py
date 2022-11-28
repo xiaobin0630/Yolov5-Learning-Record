@@ -3,6 +3,7 @@ import os
 import torch
 import torch.nn
 import numpy as np
+import glob
 from tqdm import tqdm
 from utils.utils import get_classes,get_anchors
 from random import sample, shuffle
@@ -44,7 +45,13 @@ class Data_test(object):
         print(cls.year)
 
 if __name__ == '__main__':
-    Data_test.get_time()
+
+    ground_truth_files_list = glob.glob('model_data' + '/*.txt')
+    id = ground_truth_files_list[0].split('.txt',1)[0]
+    print(os.path.normpath(id))
+    os.path.basename(os.path.normpath(id))
+    print(os.path.basename(os.path.normpath(id)))
+    # Data_test.get_time()
 
     # bar(**{'a':1,'b':2})
     # foo1(1,2,3,4)
