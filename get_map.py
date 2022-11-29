@@ -9,7 +9,7 @@ if __name__ == "__main__":
     # map_mode 用于指定文件运行时计算的内容
     map_mode = 0
     # classes_path 指定类别路径
-    classes_path = 'model_data/voc_classes.txt'
+    classes_path = 'model_data/voc_classes'
     # MINOVERLAP 用于指定获得mAP0.x
     #   比如计算mAP0.75，可以设定MINOVERLAP = 0.75。
     #   当某一预测框与真实框重合度大于MINOVERLAP时，该预测框被认为是正样本，否则为负样本。

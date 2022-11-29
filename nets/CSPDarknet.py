@@ -30,6 +30,7 @@ class Focus(nn.Module):
 
     def forward(self,x):
         # (320,320,12) -> (320,320,64)
+
         return self.conv(
             # (640,640,3) -> (320,320,12)
             torch.cat(
@@ -37,6 +38,7 @@ class Focus(nn.Module):
                 [
                     # 每个取值后的shape为(320,320,3)
                     # 从每通道每行每列0,0开始,步长2
+
                     x[...,::2,::2],
                     # 从每通道每行每列1,0开始,步长2
                     x[...,1::2,::2],

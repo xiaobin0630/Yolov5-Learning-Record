@@ -4,6 +4,8 @@ import shutil
 import matplotlib
 import sys
 import json
+import math
+import cv2
 matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 import numpy as np
@@ -20,20 +22,67 @@ def file_lines_to_list(path):
     # 去除每行的'\n'
     content = [x.strip() for x in content]
     return content
+def voc_ap(rec,prec):
+    # 在rec前面加0.0的值
+    rec.insert(0, 0.0)
+    # 在rec最后面加1.0的值
+    rec.append(1.0)
+    mrec = rec[:]
+    # 在prec前面加0.0的值
+    prec.insert(0, 0.0)
+    # 在prec最后面加1.0的值
+    prec.append(0.0)
+    mpre = prec[:]
+    # 从len(mpre) 一直到-1停止 步长为-1 训练两两比较,把较大值存入mpre[i]中 作用是是precision 从头到尾单调下降
+    for i in range(len(mpre)-2, -1, -1):
+        mpre[i] = max(mpre[i], mpre[i+1])
+
+    i_list = []
+    for i in range(1, len(mrec)):
+        if mrec[i] != mrec[i-1]:
+            i_list.append(i)
+
+    ap = 0.0
+    for i in i_list:
+        ap += ((mrec[i]-mrec[i-1])*mpre[i])
+    return ap, mrec, mpre
+
+
+def log_average_miss_rate(precision,fp_cumsum,num_images):
+    if precision.size == 0:
+        lamr = 0
+        mr = 1
+        fppi = 0
+        return lamr, mr, fppi
+
+    fppi = fp_cumsum / float(num_images)
+    mr = (1 - precision)
+
+    fppi_tmp = np.insert(fppi, 0, -1.0)
+    mr_tmp = np.insert(mr, 0, 1.0)
+
+    ref = np.logspace(-2.0, 0.0, num=9)
+    for i, ref_i in enumerate(ref):
+        j = np.where(fppi_tmp <= ref_i)[-1][-1]
+        ref[i] = mr_tmp[j]
+
+    lamr = math.exp(np.mean(np.log(np.maximum(1e-10, ref))))
+
+    return lamr, mr, fppi
 
 
 # 获得map
 def get_map(MINOVERLAP,draw_plot,score_threhold=0.5,path='./map_out'):
     # 真实框路径文件夹
-    GT_PATH = os.path.join(path,'ground-truth')
+    GT_PATH = os.path.join(path, 'ground-truth')
     # 预测框路径文件夹
-    DR_PATH = os.path.join(path,'detection-results')
+    DR_PATH = os.path.join(path, 'detection-results')
     # 图像路径
-    IMG_PATH = os.path.join(path,'images-optional')
+    IMG_PATH = os.path.join(path, 'images-optional')
     # 暂存路径文件夹
-    TEMP_FILES_PATH = os.path.join(path,'.temp_files')
+    TEMP_FILES_PATH = os.path.join(path, '.temp_files')
     # 结果路径文件夹
-    RESULTS_FILES_PATH = os.path.join(path,'results')
+    RESULTS_FILES_PATH = os.path.join(path, 'results')
 
     # 是否展现动画
     show_animation = True
@@ -181,7 +230,7 @@ def get_map(MINOVERLAP,draw_plot,score_threhold=0.5,path='./map_out'):
             # 循环提取lines的值进行处理
             for line in lines:
                 try:
-                    tem_class_name,confidence,left,top,right,bottom = line.split()
+                    tmp_class_name,confidence,left,top,right,bottom = line.split()
                 except:
                     line_split = line.split()
                     bottom = line_split[-1]
@@ -189,14 +238,14 @@ def get_map(MINOVERLAP,draw_plot,score_threhold=0.5,path='./map_out'):
                     top = line_split[-3]
                     left = line_split[-4]
                     confidence = line_split[-5]
-                    tmp_class_name = ""
+                    tmp_class_name  = ""
                     for name in line_split[:-5]:
                         tmp_class_name += name + " "
-                    tmp_class_name = tmp_class_name[:-1]
+                    tmp_class_name  = tmp_class_name[:-1]
 
                 if tmp_class_name == class_name:
-                    bbox = left + " " + top + " " + right + " " + bottom
-                    bounding_boxes.append({"confidence" : confidence,"file_id" : file_id,"bbox" : bbox})
+                    bbox = left + " " + top + " " + right + " " +bottom
+                    bounding_boxes.append({"confidence":confidence, "file_id":file_id, "bbox":bbox})
         # 按置信度进行sort
         bounding_boxes.sort(key=lambda x:float(x['confidence']),reverse=True)
         # 保存
@@ -206,23 +255,204 @@ def get_map(MINOVERLAP,draw_plot,score_threhold=0.5,path='./map_out'):
     sum_AP = 0.0
     ap_dictionary = {}
     lamr_dictionary = {}
+    # 创建文件夹
     with open(RESULTS_FILES_PATH + "/result.txt","w") as results_file:
-        results_file.write("# AP and percision/recall per class\n")
-        count_true_positive = {}
-        for class_index,class_name in enumerate(gt_classes):
-            count_true_positive[class_name] = 0
+        #
+        results_file.write("# AP and precision/recall per class\n")
+        #
+        count_true_positives = {}
+        # 循环按类进行
+        for class_index, class_name in enumerate(gt_classes):
+            # 对每一次循环的类,创建key与value 如:{'aeroplane' : 0}
+            count_true_positives[class_name] = 0
+            # 组合在.temp_files文件下的 如:aeroplane_dr.json文件路径
             dr_file = TEMP_FILES_PATH + "/" + class_name + "_dr.json"
+            # 读取json格式数据
             dr_data = json.load(open(dr_file))
-
+            # 统计在当前class_name次循环有多少条数据
             nd = len(dr_data)
+            # 创建tp对应条数据那么多的列表[0...] tp truepositive
             tp = [0] * nd
+            # 创建fp对应条数据那么多的列表[0...] fp falsepotive
             fp = [0] * nd
+            # 创建score对应条数据那么多的列表[0...]
             score = [0] * nd
             score_threhold_idx = 0
-            for idx,detection in enumerate(dr_data):
+            # 循环当前class_name的temp_dr.json数据
+            for idx, detection in enumerate(dr_data):
+                # 赋值id 如:file_id = 007857
                 file_id = detection["file_id"]
+                # 将对应条的数据confidence 保存在对应的score[idx]中
                 score[idx] = float(detection["confidence"])
-                if score
+                if score[idx] >= score_threhold:
+                    score_threhold_idx = idx
+                # 判断是否可视化 暂不实现
+                if show_animation:
+                    pass
+                # 组成对应file_id 的_ground_truth.json文件路径
+                gt_file = TEMP_FILES_PATH + "/" + file_id + "_ground_truth.json"
+                # 读取gt_file文件数据
+                ground_truth_data = json.load(open(gt_file))
+                ovmax = -1
+                gt_match = -1
+                # 提取预测的框的坐标
+                bb = [float(x) for x in detection["bbox"].split()]
+
+                # 循环提取真实框数据
+                for obj in ground_truth_data:
+                    # 如果真实框的类别等于本次循环的class_name则进行进行内部操作
+                    if obj["class_name"] == class_name:
+                        # 得到真实坐标
+                        bbgt = [ float(x) for x in obj["bbox"].split() ]
+                        # 得到∩框 取真实框与预测框左上角最大坐标点与右下角最小坐标点
+                        bi = [max(bb[0],bbgt[0]), max(bb[1],bbgt[1]), min(bb[2],bbgt[2]), min(bb[3],bbgt[3])]
+
+                        # 得到∩框的宽高
+                        iw = bi[2] - bi[0] + 1
+                        ih = bi[3] - bi[1] + 1
+                        # 判断∩框的宽高都大于0
+                        if iw > 0 and ih > 0:
+                            # (预测框的宽 + 1) * (预测框的高 + 1) + (真实框的宽 + 1) *(真实框的高 + 1) - iw*ih(∩框的宽高)
+                            ua = (bb[2] - bb[0] + 1) * (bb[3] - bb[1] + 1) + (bbgt[2] - bbgt[0]
+                                            + 1) * (bbgt[3] - bbgt[1] + 1) - iw * ih
+                            # 计算重叠率 就是交并比
+                            ov = iw * ih / ua
+                            # 判断
+                            if ov > ovmax:
+                                ovmax = ov
+                                gt_match = obj
+
+                if show_animation:
+                    status = "未发现匹配!"
+
+
+                min_overlap = MINOVERLAP
+
+                # 判断交并比是否大于设置的最小重叠率
+                if ovmax >= min_overlap:
+                    # 判断字符串difficult 是否在真实框keys对里
+                    if "difficult" not in gt_match:
+                        # 判断gt_match的used是否已经判断过的,没有就进行判断的内部操作
+                        if not bool(gt_match["used"]):
+                            # 循环当前class_name的第idx的tp设置 0 -> 1
+                            tp[idx] = 1
+                            # 将真实数据的key["used"]的值设置为True
+                            gt_match["used"] = True
+                            # 将当前count_true_positive[class_name]加1
+                            count_true_positives[class_name] += 1
+                            # 将更改的gt_match重新写入到gt_file文件里
+                            with open(gt_file, 'w') as f:
+                                    f.write(json.dumps(ground_truth_data))
+
+                            if show_animation:
+                                status = "匹配成功!"
+
+                        else:
+                            # 循环当前class_name的第idx的tp设置 0 -> 1
+                            fp[idx] = 1
+                            if show_animation:
+                                status = "重复匹配!"
+                # 如果没有大于最小阀值
+                else:
+                    fp[idx] = 1
+                    if ovmax > 0:
+                        status = "小于重叠率!"
+                # 暂不实现
+                if show_animation:
+                    pass
+            # tp 与 fp 进行累加复制到原位
+            cumsum = 0
+            for idx, val in enumerate(fp):
+                fp[idx] += cumsum
+                cumsum += val
+
+            cumsum = 0
+            for idx, val in enumerate(tp):
+                tp[idx] += cumsum
+                cumsum += val
+
+            rec = tp[:]
+            #
+            # 把tp每一个数据都除以真实该类别的数量 gt_counter_per_class里面存的就是真实标签中的各类别数量
+            for idx, val in enumerate(tp):
+                rec[idx] = float(tp[idx]) / np.maximum(gt_counter_per_class[class_name], 1)
+
+            prec = tp[:]
+            # 求p 正确预测样本/ 所有正样本
+            for idx, val in enumerate(tp):
+                prec[idx] = float(tp[idx]) / np.maximum((fp[idx] + tp[idx]), 1)
+
+            ap, mrec, mprec = voc_ap(rec[:], prec[:])
+            F1  = np.array(rec)*np.array(prec)*2 / np.where((np.array(prec)+np.array(rec))==0, 1, (np.array(prec)+np.array(rec)))
+
+            sum_AP  += ap
+            text    = "{0:.2f}%".format(ap*100) + " = " + class_name + " AP " #class_name + " AP = {0:.2f}%".format(ap*100)
+
+            if len(prec)>0:
+                F1_text         = "{0:.2f}".format(F1[score_threhold_idx]) + " = " + class_name + " F1 "
+                Recall_text     = "{0:.2f}%".format(rec[score_threhold_idx]*100) + " = " + class_name + " Recall "
+                Precision_text  = "{0:.2f}%".format(prec[score_threhold_idx]*100) + " = " + class_name + " Precision "
+            else:
+                F1_text         = "0.00" + " = " + class_name + " F1 "
+                Recall_text     = "0.00%" + " = " + class_name + " Recall "
+                Precision_text  = "0.00%" + " = " + class_name + " Precision "
+
+            rounded_prec = ['%.2f' % elem for elem in prec]
+            rounded_rec = ['%.2f' % elem for elem in rec]
+            results_file.write(text + "\n Precision: " + str(rounded_prec) + "\n Recall :" + str(rounded_rec) + "\n\n")
+
+            if len(prec)>0:
+                print(text + "\t||\tscore_threhold=" + str(score_threhold) + " : " + "F1=" + "{0:.2f}".format(F1[score_threhold_idx])\
+                    + " ; Recall=" + "{0:.2f}%".format(rec[score_threhold_idx]*100) + " ; Precision=" + "{0:.2f}%".format(prec[score_threhold_idx]*100))
+
+            else:
+                print(text + "\t||\tscore_threhold=" + str(score_threhold) + " : " + "F1=0.00% ; Recall=0.00% ; Precision=0.00%")
+            ap_dictionary[class_name] = ap
+
+            n_images = counter_images_per_class[class_name]
+            lamr, mr, fppi = log_average_miss_rate(np.array(rec), np.array(fp), n_images)
+            lamr_dictionary[class_name] = lamr
+
+            # 画图 暂不实现
+            if draw_plot:
+                pass
+        if show_animation:
+            cv2.destroyAllWindows()
+
+        if n_classes == 0:
+            print("未检测到然后种类")
+            return 0
+
+        results_file.write("\n# mAP of all classes\n")
+        mAP     = sum_AP / n_classes
+        text    = "mAP = {0:.2f}%".format(mAP*100)
+        results_file.write(text + "\n")
+        print(text)
+    return mAP
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

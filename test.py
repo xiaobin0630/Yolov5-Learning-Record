@@ -45,12 +45,16 @@ class Data_test(object):
         print(cls.year)
 
 if __name__ == '__main__':
+    a1 = [3, 5, 2, 1, 6]
+    a2 = [7, 1, 2, 4, 2]
+    a = np.maximum(a1, 1)
+    print(a)
 
-    ground_truth_files_list = glob.glob('model_data' + '/*.txt')
-    id = ground_truth_files_list[0].split('.txt',1)[0]
-    print(os.path.normpath(id))
-    os.path.basename(os.path.normpath(id))
-    print(os.path.basename(os.path.normpath(id)))
+    # ground_truth_files_list = glob.glob('model_data' + '/*.txt')
+    # id = ground_truth_files_list[0].split('.txt',1)[0]
+    # print(os.path.normpath(id))
+    # os.path.basename(os.path.normpath(id))
+    # print(os.path.basename(os.path.normpath(id)))
     # Data_test.get_time()
 
     # bar(**{'a':1,'b':2})
