@@ -14,9 +14,10 @@ class YOLO(object):
     # 设置默认值字典配置
     _defaults = {
         # 模型权重
-        "model_path" : "model_data/yolov5_s.pth",
+        # "model_path" : "model_data/yolov5_s.pth",
+        "model_path" : "logs/last_epoch_weights.pth",
         # 类别文件
-        "classes_path" : "model_data/coco_classes.txt",
+        "classes_path" : "model_data/voc_classes",
         # 先验框大小文件
         "anchors_path" : 'model_data/yolo_anchors',
         # 先验框掩码
@@ -45,30 +46,30 @@ class YOLO(object):
         else:
             return "没有这个属性名'" + n + "'."
     # 初始化
-    def __init__(self,**kwargs): # 如:传入**{'a': 1, 'b': 2, 'c': 3}
+    def __init__(self, **kwargs): # 如:传入**{'a': 1, 'b': 2, 'c': 3}
         # 将上面默认设置更新为类的字典
         self.__dict__.update(self._defaults)
         # 循环提取实例化对象参数
-        for name,value in kwargs.items():
+        for name, value in kwargs.items():
             # setattr 给对象设置key value
-            setattr(self,name,value)
+            setattr(self, name, value)
             self._defaults[name] = value
         # print(self.__dict__)
         # self.__dict__ {'model_path': 'model_data/yolov5_s.pth', 'classes_path': 'model_data/coco_classes.txt', 'anchors_path': 'model_data/yolo_anchors.txt', 'anchors_mask': [[6, 7, 8], [3, 4, 5], [0, 1, 2]], 'input_shape': [640, 640], 'backbone': 'cspdarknet', 'phi': 's', 'confidence': 0.5, 'nms_iou': 0.3, 'letterbox_image': True, 'cuda': True, 'a': 1, 'b': 2, 'c': 3}
         # 获取种类和先验框数量
-        self.class_names,self.num_classes = get_classes(self.classes_path)
-        self.anchors,self.num_anchors = get_anchors(self.anchors_path)
+        self.class_names, self.num_classes = get_classes(self.classes_path)
+        self.anchors, self.num_anchors = get_anchors(self.anchors_path)
         # 实例化解码类
         # print(self.anchors,self.anchors[8],self.anchors[7],self.anchors[6])
-        self.bbox_util = DecodeBox(self.anchors,self.num_classes,(self.input_shape[0],self.input_shape[1]),self.anchors_mask)
+        self.bbox_util = DecodeBox(self.anchors, self.num_classes, (self.input_shape[0], self.input_shape[1]), self.anchors_mask)
 
         # 设置不同的颜色框 # [(0.0, 1.0, 1.0), (0.05, 1.0, 1.0)...]
-        hsv_tuples = [(x / self.num_classes,1.0,1.0)for x in range(self.num_classes)]
+        hsv_tuples = [(x / self.num_classes, 1., 1.) for x in range(self.num_classes)]
 
         # (0.0, 1.0, 1.0) -> (1.0, 0.0, 0.0)  ->[(1.0, 0.0, 0.0), (1.0, 0.30000000000000004, 0.0)...]
-        self.colors = list(map(lambda x: colorsys.hsv_to_rgb(*x),hsv_tuples))
+        self.colors = list(map(lambda x: colorsys.hsv_to_rgb(*x), hsv_tuples))
         # (1.0, 0.0, 0.0) -> (255, 0, 0) -> [(255, 0, 0), (255, 76, 0)...]
-        self.colors = list(map(lambda x:(int(x[0] * 255) ,int(x[1] * 255), int(x[2] * 255)),self.colors))
+        self.colors = list(map(lambda x: (int(x[0] * 255), int(x[1] * 255), int(x[2] * 255)), self.colors))
 
         # 生成模型
         self.generate()
@@ -76,16 +77,16 @@ class YOLO(object):
         # 显示配置
         # show_config(**self._defaults)
 
-    def generate(self,onnx=False):
+    def generate(self, onnx=False):
         # 建立yolo模型,载入yolo模型的权重
-        self.net = YoloBody(self.anchors_mask,self.num_classes,self.phi,backbone=self.backbone,input_shape=self.input_shape)
+        self.net = YoloBody(self.anchors_mask, self.num_classes, self.phi, backbone = self.backbone, input_shape = self.input_shape)
         # 设置gpu
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         # 载入权重
         self.net.load_state_dict(torch.load(self.model_path, map_location=device))
         # 启动验证模式
         self.net = self.net.eval()
-        print("{} 模型和类别已载入.".format(self.model_path))
+        print('{} model, and classes loaded.'.format(self.model_path))
         # 把网络模型放入gpu上加速
         if not onnx:
             if self.cuda:
@@ -206,6 +207,63 @@ class YOLO(object):
             draw.text(text_origin,str(label,'UTF-8'),fill=(0,0,0),font=font)
             del draw
         return image
+    # 得到txt
+    def get_map_txt(self, image_id, image, class_names, map_out_path):
+        # 创建对应图像id的txt
+        f = open(os.path.join(map_out_path, "detection-results/"+image_id+".txt"), "w", encoding='utf-8')
+        # 提取图片的shape
+        image_shape = np.array(np.shape(image)[0:2])
+        # 将图片转化为RGB图像
+        image = cvtColor(image)
+        # 给图像增加灰条,实现不失真的resize
+        image_data = resize_image(image, (self.input_shape[1], self.input_shape[0]), self.letterbox_image)
+        # 添加batch_size维度
+        image_data  = np.expand_dims(np.transpose(preprocess_input(np.array(image_data, dtype='float32')), (2, 0, 1)), 0)
+
+        # 不计算梯度
+        with torch.no_grad():
+            images = torch.from_numpy(image_data)
+            # 是否使用gpu
+            if self.cuda:
+                images = images.cuda()
+
+            # 将图像输入网络中进行预测
+            outputs = self.net(images)
+            outputs = self.bbox_util.decode_box(outputs)
+
+            # 堆叠预测框,进行非极大值抑制
+            results = self.bbox_util.non_max_suppression(torch.cat(outputs,1),self.num_classes,self.input_shape,
+                                                         image_shape,self.letterbox_image,conf_thres=self.confidence,
+                                                         nms_thres=self.nms_iou
+                                                         )
+
+            # 如果没有框直接返回
+            if results[0] is None:
+                return
+            # 提取预测的类别数
+            top_label = np.array(results[0][:,6],dtype='int32')
+            # 置信度
+            top_conf = results[0][:,4] * results[0][:,5]
+            # 框坐标
+            top_boxes = results[0][:,:4]
+
+        # 循环提取并保存
+        for i, c in list(enumerate(top_label)):
+            predicted_class = self.class_names[int(c)]
+            box = top_boxes[i]
+            score = str(top_conf[i])
+            # 坐标 y1,x1,y2,x2
+            top, left, bottom, right = box
+
+            if predicted_class not in class_names:
+                continue
+            # 写入
+            f.write("%s %s %s %s %s %s\n" % (predicted_class,score[:6],str(int(left)),str(int(top)),str(int(right)),str(int(bottom))))
+
+        f.close()
+        return
+
+
 
 
 
